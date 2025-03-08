@@ -8,10 +8,6 @@ import os
 load_dotenv() 
 uri = os.getenv("DB")
 
-def convert_objectid_to_str(doc):
-    """Convert MongoDB ObjectId to string in a document"""
-    doc["_id"] = str(doc["_id"])
-    return doc
 
 
 def convert_objectid_to_str(document):
@@ -35,11 +31,12 @@ except Exception as e:
 
 try:
     client = MongoClient(uri, server_api=ServerApi('1'))
-    db = client["sample_mflix"]  # Make sure this matches your database name
-    results_collection = db["comments"]  # Collection storing integrity check results
+    db = client["blockchain_db"]  # Make sure this matches your database name
+    results_collection = db["results"]  # Collection storing integrity check results
     print("Connected to MongoDB successfully!")
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
+
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -48,15 +45,21 @@ app = Flask(__name__)
 @app.route("/results", methods=["GET"])
 def get_results():
     results = list(results_collection.find({}))  # Get all results
+
+    if not results:  # If results are empty, return a JSON response
+        return jsonify({"message": "No results found"}), 404
+
     results = [convert_objectid_to_str(doc) for doc in results]  # Convert _id to string
-    return jsonify(results) if results else jsonify({"message": "No results found"})
+    return jsonify(results)
 
 
 # API endpoint to fetch the latest integrity check
-@app.route("/latest", methods=["GET"])
+@app.route("/latest", methods=["GET"])  # Added missing route
 def get_latest():
-    latest_result = results_collection.find_one(sort=[("timestamp", -1)], projection={"_id": 0})
-    return jsonify(latest_result if latest_result else {"message": "No checks found"})
+    latest_result = results_collection.find_one(sort=[("_id", -1)], projection={"_id": 0})
+    return jsonify(latest_result or {"message": "No checks found"})  # Fixed None issue
+
+
 
 # Run the Flask app
 if __name__ == "__main__":
